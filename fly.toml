@@ -1,0 +1,32 @@
+# Fly.io deployment: one always-on machine in Singapore (closest region to India; Fly has no Mumbai region) with a 1 GB volume for the SQLite file.
+app = "swarcomplaint-phone-60d432"
+primary_region = "sin"
+
+[env]
+  PORT = "8787"
+  DB_PATH = "/data/phone-agent.db"
+  MIRROR_TO_WEB_APP = "false"
+  GLM_MODEL = "glm-5.3-flashx"
+
+[[mounts]]
+  source = "phone_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Never sleep: Bolna's caller check must be answered within 3 seconds.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

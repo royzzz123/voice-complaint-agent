@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SwarComplaint Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #f5f7fa; --panel: #ffffff; --ink: #18212b; --muted: #637083; --faint: #8a96a6; --line: #e3e8ee; --hover: #f0f4f9;
+    --accent: #2457d6; --accent-soft: #e8efff; --ok: #157347; --ok-soft: #e3f5ec; --warn: #9a5b00; --warn-soft: #fff3df;
+    --bad: #b42318; --bad-soft: #fde9e7; --chip: #eef1f5; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --agent-bubble: #f0f3f7; --caller-bubble: #2457d6; --caller-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1318; --panel: #171c23; --ink: #e8edf3; --muted: #9aa6b5; --faint: #6f7b8a; --line: #262d37; --hover: #1d242d;
+      --accent: #7ea2ff; --accent-soft: #1c2741; --ok: #4cc38a; --ok-soft: #13291f; --warn: #f0b45a; --warn-soft: #2d2313;
+      --bad: #f2877b; --bad-soft: #351a18; --chip: #222a34; --shadow: none; --agent-bubble: #222a34; --caller-bubble: #3b66d9; --caller-ink: #ffffff; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 Inter, "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px 64px; }
+  header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  header.top .wrap { display: flex; align-items: center; gap: 16px; padding-top: 14px; padding-bottom: 14px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
+  .brand h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .brand p { margin: 0; font-size: 12px; color: var(--muted); }
+  .live { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+  .dot.paused { background: var(--faint); box-shadow: none; }
+  .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--bad); }
+  .btn.small { padding: 3px 10px; font-size: 12px; }
+  input.field, select.field { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+  input.field:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 20px 0; }
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .kpi .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .kpi .k { font-size: 12px; color: var(--muted); }
+  .kpi.alert .v { color: var(--bad); }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+  .tab { border: 0; background: none; padding: 10px 14px; cursor: pointer; color: var(--muted); font-weight: 550; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .count { background: var(--chip); color: var(--muted); border-radius: 99px; padding: 0 7px; font-size: 11px; margin-left: 6px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .toolbar { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+  .toolbar .grow { flex: 1; min-width: 180px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  th { font-size: 12px; font-weight: 550; color: var(--muted); background: var(--panel); position: sticky; top: 0; }
+  tbody tr[data-kind] { cursor: pointer; }
+  tbody tr[data-kind]:hover { background: var(--hover); }
+  tbody tr.sel { background: var(--accent-soft); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.wrapcell { white-space: normal; min-width: 220px; max-width: 360px; }
+  .mono { font-variant-numeric: tabular-nums; }
+  .ref { font-weight: 650; font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; background: var(--chip); color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); }
+  .chip.info { background: var(--accent-soft); color: var(--accent); }
+
+  /* drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(15,19,24,.35); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 20; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; bottom: 0; right: 0; width: min(620px, 100%); background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(100%); transition: transform .2s ease; z-index: 21; display: flex; flex-direction: column; }
+  .drawer.open { transform: none; }
+  .drawer header { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: flex-start; }
+  .drawer header h2 { margin: 0; font-size: 18px; }
+  .drawer header .close { margin-left: auto; flex: none; }
+  .drawer .body { overflow-y: auto; padding: 18px 20px 40px; flex: 1; }
+  .section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 22px 0 10px; }
+  .section-title:first-child { margin-top: 0; }
+  dl.fields { display: grid; grid-template-columns: 190px 1fr; gap: 0; margin: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  dl.fields dt, dl.fields dd { margin: 0; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  dl.fields dt { color: var(--muted); font-size: 13px; background: var(--hover); }
+  dl.fields dd { white-space: pre-wrap; word-break: break-word; }
+  dl.fields > :nth-last-child(-n+2) { border-bottom: 0; }
+  dl.fields dd.missing { color: var(--faint); }
+  @media (max-width: 560px) { dl.fields { grid-template-columns: 1fr; } }
+  .chat { display: flex; flex-direction: column; gap: 10px; }
+  .bubble { max-width: 84%; padding: 9px 13px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
+  .bubble.agent { background: var(--agent-bubble); border-bottom-left-radius: 4px; }
+  .bubble.caller { background: var(--caller-bubble); color: var(--caller-ink); border-bottom-right-radius: 4px; }
+  .who { font-size: 11px; color: var(--muted); margin-bottom: 2px; display: flex; gap: 6px; align-items: center; }
+  .msg { display: flex; flex-direction: column; align-items: flex-start; }
+  .msg.caller { align-items: flex-end; }
+  .meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+
+  /* console + blocks */
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 960px) { .grid2 { grid-template-columns: 1fr; } }
+  .pad { padding: 16px; }
+  .console-chat { height: 420px; overflow-y: auto; padding: 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .sysmsg { align-self: center; color: var(--muted); font-size: 12px; }
+  .rules { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .rule { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .rule b { font-variant-numeric: tabular-nums; }
+  .rule .ico { width: 26px; height: 26px; border-radius: 7px; background: var(--accent-soft); display: grid; place-items: center; flex: none; font-size: 13px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo">S</div>
+      <div><h1>SwarComplaint Console</h1><p>Phone helpline for SEBI investor complaints</p></div>
+    </div>
+    <div class="live">
+      <span class="dot" id="liveDot"></span><span id="updated">Loading…</span>
+      <button class="btn small" id="pauseBtn" type="button">Pause updates</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="kpis" id="kpis" aria-label="Last 24 hours"></section>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="complaints" aria-selected="true" type="button">Complaints<span class="count" id="cnt-complaints">0</span></button>
+    <button class="tab" role="tab" data-tab="calls" aria-selected="false" type="button">Calls<span class="count" id="cnt-calls">0</span></button>
+    <button class="tab" role="tab" data-tab="blocks" aria-selected="false" type="button">Blocked numbers<span class="count" id="cnt-blocks">0</span></button>
+    <button class="tab" role="tab" data-tab="console" aria-selected="false" type="button">Test console</button>
+  </nav>
+
+  <section data-panel="complaints">
+    <div class="card">
+      <div class="toolbar">
+        <input class="field grow" id="qComplaints" placeholder="Search by reference, name, entity or issue…" />
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Reference</th><th>Received</th><th>Complainant</th><th>Against</th><th>Issue</th><th>Amount</th><th>Language</th></tr></thead>
+        <tbody id="complaintsBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section data-panel="calls" hidden>
+    <div class="card">
+      <div class="toolbar">
+        <input class="field grow" id="qCalls" placeholder="Search by caller, reference or words in the transcript…" />
+        <select class="field" id="fCalls">
+          <option value="">All outcomes</option><option value="filed">Complaint filed</option><option value="flagged">Flagged for misuse</option>
+          <option value="rejected">Rejected before answer</option><option value="active">In progress</option><option value="other">Other</option>
+        </select>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Time</th><th>Caller</th><th>Outcome</th><th>Duration</th><th>Turns</th><th>Strikes</th><th>Complaint</th></tr></thead>
+        <tbody id="callsBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section data-panel="blocks" hidden>
+    <div class="grid2">
+      <div class="card">
+        <div class="toolbar"><strong>Currently blocked</strong></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Number</th><th>Reason</th><th>Blocked until</th><th></th></tr></thead>
+          <tbody id="blocksBody"></tbody>
+        </table></div>
+      </div>
+      <div class="card pad">
+        <strong>Block a number</strong>
+        <form id="blockForm" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px">
+          <input class="field" id="blockPhone" placeholder="+91 98765 43210" style="flex:1;min-width:160px" required />
+          <select class="field" id="blockHours"><option value="24">24 hours</option><option value="168" selected>7 days</option><option value="720">30 days</option></select>
+          <button class="btn primary">Block</button>
+        </form>
+        <strong>Guardrails in force</strong>
+        <div class="rules" id="rules" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section data-panel="console" hidden>
+    <div class="card">
+      <div class="toolbar">
+        <input class="field" id="simPhone" value="+919876543210" aria-label="Caller number" style="width:180px" />
+        <button class="btn primary" id="dial" type="button">Dial in</button>
+        <button class="btn" id="hang" type="button">Hang up</button>
+        <span class="sub">Uses the same code path as a real phone call.</span>
+      </div>
+      <div class="console-chat chat" id="chat"><div class="sysmsg">Enter a caller number and press Dial in.</div></div>
+      <form class="toolbar" id="sayForm" style="border-bottom:0">
+        <input class="field grow" id="say" placeholder="Type what the caller says…" autocomplete="off" />
+        <button class="btn primary">Send</button>
+      </form>
+    </div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" role="dialog" aria-label="Details">
+  <header><div id="drawerHead"></div><button class="btn small close" id="drawerClose" type="button">Close ✕</button></header>
+  <div class="body" id="drawerBody"></div>
+</aside>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const fmtTime = (ms) => ms ? new Date(ms).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+const fmtDur = (a, b) => { if (!a || !b) return "—"; const s = Math.max(0, Math.round((b - a) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const rupees = (v) => v ? "₹" + Number(v).toLocaleString("en-IN") : "—";
+const LANG = { en: "English", hi: "Hindi" };
+const CLS = { on_topic: ["on topic", "ok"], small_talk: ["small talk", ""], off_topic: ["off topic", "warn"], gibberish_or_prank: ["prank", "warn"],
+  abusive: ["abusive", "bad"], threat: ["threat", "bad"], manipulation: ["manipulation", "bad"], distress: ["distress", "info"] };
+const FIELD_LABELS = {
+  complainant_name: "Full name", mobile_number: "Mobile number", email: "Email", pan: "PAN", date_of_birth: "Date of birth", complainant_address: "Address",
+  registered_entity_name: "SEBI-regulated entity", complaint_category: "Category", complaint_nature: "Nature of complaint", complaint_description: "Description",
+  date_of_issue: "Date / period of issue", amount_involved: "Amount involved", prior_complaint_to_entity: "Already complained to entity",
+  reference_numbers: "Reference / ticket numbers", supporting_documents_mentioned: "Documents mentioned",
+};
+const FIELD_GROUPS = [
+  ["Complaint", ["registered_entity_name", "complaint_category", "complaint_nature", "complaint_description", "date_of_issue", "amount_involved", "prior_complaint_to_entity", "reference_numbers", "supporting_documents_mentioned"]],
+  ["Complainant", ["complainant_name", "mobile_number", "email", "pan", "date_of_birth", "complainant_address"]],
+];
+
+let data = { stats: {}, calls: [], blocks: [], complaints: [], config: {} };
+let lastSig = "", paused = false, openItem = null; // openItem = { kind: 'complaint' | 'call', id }
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function outcome(c) {
+  if (!c.admitted) return ["Rejected: " + (c.reject_reason || "").replace(/_/g, " "), "bad", "rejected"];
+  if (c.flagged) return ["Flagged: " + (c.flag_reason || "").replace(/_/g, " "), "bad", "flagged"];
+  if (c.complaint_id) return ["Complaint filed", "ok", "filed"];
+  if (c.status === "active") return ["In progress", "warn", "active"];
+  return [(c.endReason || c.status || "").replace(/_/g, " "), "", "other"];
+}
+
+/* ---- tables: rebuilt only when the data changes ---- */
+function renderKpis() {
+  const s = data.stats;
+  const k = [["Complaints filed", s.complaintsToday], ["Calls", s.callsToday], ["Rejected before answer", s.rejectedToday],
+    ["Flagged for misuse", s.flaggedToday, s.flaggedToday > 0], ["Numbers blocked now", s.activeBlocks]];
+  $("kpis").innerHTML = k.map(([label, v, alert]) => `<div class="kpi${alert ? " alert" : ""}"><div class="v">${v ?? 0}</div><div class="k">${label} · last 24 h</div></div>`).join("");
+}
+
+function renderComplaints() {
+  const q = $("qComplaints").value.trim().toLowerCase();
+  const rows = data.complaints.filter((c) => !q || [c.id, c.entity, c.fields?.complainant_name, c.fields?.complaint_nature, c.fields?.complaint_description].join(" ").toLowerCase().includes(q));
+  $("cnt-complaints").textContent = data.complaints.length;
+  $("complaintsBody").innerHTML = rows.length ? rows.map((c) => `
+    <tr data-kind="complaint" data-id="${esc(c.id)}" class="${openItem?.id === c.id ? "sel" : ""}">
+      <td class="ref">${esc(c.id)}</td>
+      <td class="mono">${fmtTime(c.created_at)}</td>
+      <td>${esc(c.fields?.complainant_name || "—")}<div class="sub">${esc(c.phone)}</div></td>
+      <td class="wrapcell">${esc(c.entity)}${c.entityVerified === false ? ' <span class="chip warn">not in registry</span>' : ""}</td>
+      <td class="wrapcell">${esc(c.fields?.complaint_nature || c.fields?.complaint_description || "—")}</td>
+      <td class="mono">${rupees(c.fields?.amount_involved)}</td>
+      <td>${esc(LANG[c.language] || "—")}</td>
+    </tr>`).join("") : `<tr><td colspan="7" class="empty">${q ? "No complaint matches the search." : "No complaints yet."}</td></tr>`;
+}
+
+function renderCalls() {
+  const q = $("qCalls").value.trim().toLowerCase(), f = $("fCalls").value;
+  const rows = data.calls.filter((c) => (!f || outcome(c)[2] === f) &&
+    (!q || [c.phone, c.complaint_id, ...(c.transcript || []).map((h) => h.text)].join(" ").toLowerCase().includes(q)));
+  $("cnt-calls").textContent = data.calls.length;
+  $("callsBody").innerHTML = rows.length ? rows.map((c) => {
+    const [label, tone] = outcome(c);
+    const strikes = c.strikes && (c.strikes.offTopic || c.strikes.abuse) ? `off-topic ${c.strikes.offTopic} · abuse ${c.strikes.abuse}` : "—";
+    return `<tr data-kind="call" data-id="${esc(c.id)}" class="${openItem?.id === c.id ? "sel" : ""}">
+      <td class="mono">${fmtTime(c.started_at)}</td>
+      <td class="mono">${esc(c.phone)}</td>
+      <td><span class="chip ${tone}">${esc(label)}</span></td>
+      <td class="mono">${fmtDur(c.started_at, c.ended_at)}</td>
+      <td class="mono">${c.turns}</td>
+      <td class="sub">${strikes}</td>
+      <td class="ref">${esc(c.complaint_id || "")}</td>
+    </tr>`; }).join("") : `<tr><td colspan="7" class="empty">${q || f ? "No call matches the filter." : "No calls yet."}</td></tr>`;
+}
+
+function renderBlocks() {
+  $("cnt-blocks").textContent = data.blocks.length;
+  $("blocksBody").innerHTML = data.blocks.length ? data.blocks.map((b) => `<tr>
+      <td class="mono">${esc(b.phoneMasked)}</td>
+      <td class="wrapcell">${esc(b.reason)} <span class="chip">${esc(b.created_by)}</span></td>
+      <td class="mono">${fmtTime(b.expires_at)}</td>
+      <td><button class="btn small danger" data-unblock="${esc(b.phone)}" type="button">Unblock</button></td></tr>`).join("")
+    : `<tr><td colspan="4" class="empty">No number is blocked.</td></tr>`;
+  const g = data.config || {};
+  const rule = (ico, html) => `<div class="rule"><div class="ico">${ico}</div><div>${html}</div></div>`;
+  $("rules").innerHTML = [
+    rule("⏱", `More than <b>${g.maxCallsPerHour}</b> calls in 1 hour → blocked for ${g.hourlyBlockHours} h`),
+    rule("📅", `More than <b>${g.maxCallsPerDay}</b> calls in 24 hours → blocked`),
+    rule("🚩", `<b>${g.maxFlaggedCallsPerDay}</b> misuse calls in a day → blocked for ${Math.round((g.flaggedBlockHours || 0) / 24)} days`),
+    rule("💬", `Off-topic or prank: redirect, warning, call ends on strike <b>${g.offTopicStrikesToEnd}</b>`),
+    rule("🛑", `Abuse: warning, call ends on strike <b>${g.abuseStrikesToEnd}</b>. Threats end the call and block at once`),
+    rule("📄", `Calls limited to <b>${Math.round((g.maxCallSeconds || 0) / 60)}</b> min · <b>${g.maxComplaintsPerDay}</b> complaints per number per day`),
+    rule("🌐", `Hidden caller ID rejected · allowed: ${esc((g.allowedCountryCodes || []).join(", "))}`),
+  ].join("");
+}
+
+function renderAll() { renderKpis(); renderComplaints(); renderCalls(); renderBlocks(); }
+
+/* ---- detail drawer: re-rendered only when its own record changes ---- */
+function transcriptHtml(lines) {
+  if (!lines?.length) return `<div class="sub">No transcript.</div>`;
+  return `<div class="chat">${lines.map((h) => {
+    const c = h.cls && CLS[h.cls];
+    return `<div class="msg ${h.role}"><div class="who">${h.role === "agent" ? "Assistant" : "Caller"}${c ? `<span class="chip ${c[1]}">${c[0]}</span>` : ""}</div>
+      <div class="bubble ${h.role}">${esc(h.text)}</div></div>`; }).join("")}</div>`;
+}
+
+function complaintText(c) {
+  const lines = [`Reference: ${c.id}`, `Received: ${fmtTime(c.created_at)}`];
+  for (const [, keys] of FIELD_GROUPS) for (const k of keys) if (c.fields?.[k]) lines.push(`${FIELD_LABELS[k]}: ${c.fields[k]}`);
+  return lines.join("\n");
+}
+
+function drawerContent() {
+  if (!openItem) return null;
+  if (openItem.kind === "complaint") {
+    const c = data.complaints.find((x) => x.id === openItem.id); if (!c) return null;
+    const groups = FIELD_GROUPS.map(([title, keys]) => `<div class="section-title">${title}</div><dl class="fields">${keys.map((k) => {
+      let v = c.fields?.[k]; if (k === "amount_involved" && v) v = rupees(v);
+      return `<dt>${FIELD_LABELS[k]}</dt><dd class="${v ? "" : "missing"}">${esc(v || "Not given")}</dd>`; }).join("")}</dl>`).join("");
+    return {
+      sig: "c" + c.id + (c.transcript || []).length,
+      head: `<h2>${esc(c.id)}</h2><div class="sub">${fmtTime(c.created_at)} · ${esc(c.phone)}${c.language ? " · " + esc(LANG[c.language] || c.language) : ""}</div>
+        <div class="meta-row"><span class="chip ok">Complaint filed</span>${c.entityVerified === false ? '<span class="chip warn">Entity not in registry</span>' : '<span class="chip info">Entity verified</span>'}
+        <button class="btn small" data-copy type="button">Copy details</button>${c.call_id ? `<button class="btn small" data-open-call="${esc(c.call_id)}" type="button">Open call</button>` : ""}</div>`,
+      body: groups + `<div class="section-title">Call transcript</div>` + transcriptHtml(c.transcript),
+    };
+  }
+  const c = data.calls.find((x) => x.id === openItem.id); if (!c) return null;
+  const [label, tone] = outcome(c);
+  return {
+    sig: "k" + c.id + (c.transcript || []).length + c.status,
+    head: `<h2>Call · ${esc(c.phone)}</h2><div class="sub">${fmtTime(c.started_at)} · duration ${fmtDur(c.started_at, c.ended_at)} · ${c.turns} turns</div>
+      <div class="meta-row"><span class="chip ${tone}">${esc(label)}</span>${c.complaint_id ? `<button class="btn small" data-open-complaint="${esc(c.complaint_id)}" type="button">Open complaint ${esc(c.complaint_id)}</button>` : ""}</div>`,
+    body: `<div class="section-title">Transcript</div>` + transcriptHtml(c.transcript),
+  };
+}
+
+let drawerSig = "";
+function renderDrawer(force) {
+  const d = drawerContent();
+  if (!d) { if (force) closeDrawer(); return; }
+  if (!force && d.sig === drawerSig) return; // unchanged: keep scroll position and any text selection
+  const body = $("drawerBody"), atBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 30;
+  $("drawerHead").innerHTML = d.head; body.innerHTML = d.body; drawerSig = d.sig;
+  if (force) body.scrollTop = 0; else if (atBottom) body.scrollTop = body.scrollHeight;
+}
+function openDrawer(kind, id) {
+  openItem = { kind, id };
+  history.replaceState(null, "", `#${kind}=${encodeURIComponent(id)}`);
+  $("drawer").classList.add("open"); $("scrim").classList.add("open"); $("drawer").setAttribute("aria-hidden", "false");
+  renderDrawer(true); renderComplaints(); renderCalls();
+}
+function closeDrawer() {
+  openItem = null; drawerSig = "";
+  history.replaceState(null, "", location.pathname + location.search);
+  $("drawer").classList.remove("open"); $("scrim").classList.remove("open"); $("drawer").setAttribute("aria-hidden", "true");
+  renderComplaints(); renderCalls();
+}
+
+/* ---- data loop ---- */
+async function refresh() {
+  try {
+    const d = await api("/admin/api/overview");
+    $("updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const sig = JSON.stringify(d);
+    if (sig === lastSig) return;
+    lastSig = sig; data = d;
+    renderAll(); if (openItem) renderDrawer(false);
+  } catch (e) { $("updated").textContent = "Connection problem, retrying…"; }
+}
+function tick() { if (!paused && !document.hidden) refresh(); }
+
+/* ---- events ---- */
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
+  document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== t.dataset.tab));
+  try { localStorage.setItem("tab", t.dataset.tab); } catch {}
+}));
+try { const saved = localStorage.getItem("tab"); if (saved) document.querySelector(`.tab[data-tab="${saved}"]`)?.click(); } catch {}
+
+document.addEventListener("click", async (e) => {
+  const row = e.target.closest("tr[data-kind]"); if (row) return openDrawer(row.dataset.kind, row.dataset.id);
+  const ub = e.target.closest("[data-unblock]"); if (ub) { await api("/admin/api/unblock", { phone: ub.dataset.unblock }); lastSig = ""; return refresh(); }
+  const oc = e.target.closest("[data-open-complaint]"); if (oc) return openDrawer("complaint", oc.dataset.openComplaint);
+  const ocall = e.target.closest("[data-open-call]"); if (ocall) return openDrawer("call", ocall.dataset.openCall);
+  const cp = e.target.closest("[data-copy]");
+  if (cp && openItem?.kind === "complaint") {
+    const c = data.complaints.find((x) => x.id === openItem.id);
+    try { await navigator.clipboard.writeText(complaintText(c)); cp.textContent = "Copied ✓"; } catch { cp.textContent = "Copy failed"; }
+  }
+});
+$("drawerClose").onclick = closeDrawer; $("scrim").onclick = closeDrawer;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && openItem) closeDrawer(); });
+$("qComplaints").addEventListener("input", renderComplaints);
+$("qCalls").addEventListener("input", renderCalls);
+$("fCalls").addEventListener("change", renderCalls);
+$("pauseBtn").onclick = () => { paused = !paused; $("pauseBtn").textContent = paused ? "Resume updates" : "Pause updates"; $("liveDot").classList.toggle("paused", paused); if (!paused) refresh(); };
+$("blockForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("/admin/api/block", { phone: $("blockPhone").value, hours: Number($("blockHours").value) });
+  $("blockPhone").value = ""; lastSig = ""; refresh();
+};
+
+/* ---- test console ---- */
+let simCall = null;
+const chat = $("chat");
+function bubble(role, text) {
+  const el = document.createElement("div");
+  if (role === "system") { el.className = "sysmsg"; el.textContent = text; }
+  else { el.className = "msg " + role; el.innerHTML = `<div class="who">${role === "agent" ? "Assistant" : "Caller"}</div><div class="bubble ${role}">${esc(text)}</div>`; }
+  chat.appendChild(el); chat.scrollTop = chat.scrollHeight;
+}
+$("dial").onclick = async () => {
+  if (simCall) await api("/sim/hangup", { callId: simCall }).catch(() => {});
+  chat.innerHTML = "";
+  const r = await api("/sim/call", { phone: $("simPhone").value });
+  if (!r.decision.admitted) { bubble("system", `Call rejected before answering: ${r.decision.reason.replace(/_/g, " ")}${r.decision.blockedUntil ? " · blocked until " + fmtTime(r.decision.blockedUntil) : ""}`); simCall = null; }
+  else { simCall = r.callId; bubble("agent", r.welcome); }
+  lastSig = ""; refresh();
+};
+$("hang").onclick = async () => { if (!simCall) return; await api("/sim/hangup", { callId: simCall }); bubble("system", "Caller hung up."); simCall = null; lastSig = ""; refresh(); };
+$("sayForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $("say").value; if (!simCall) return bubble("system", "Dial in first.");
+  $("say").value = ""; bubble("caller", text || "(silence)");
+  const r = await api("/sim/turn", { callId: simCall, text });
+  bubble("agent", r.reply);
+  if (r.endCall) { bubble("system", "The assistant ended the call."); simCall = null; }
+  lastSig = ""; refresh();
+};
+
+// Deep links: /admin#complaint=SWR-123456 or /admin#call=<id> open that record.
+function openFromHash() {
+  const m = location.hash.match(/^#(complaint|call)=(.+)$/);
+  if (m) openDrawer(m[1], decodeURIComponent(m[2]));
+}
+refresh().then(openFromHash); setInterval(tick, 5000);
+window.addEventListener("hashchange", openFromHash);
+</script>
+</body>
+</html>
